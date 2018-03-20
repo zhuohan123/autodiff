@@ -29,6 +29,9 @@ class Operator:
     x = [x_ if isinstance(x_, Variable) else Constant(x_) for x_ in x]
     return Variable(self, x)
 
+  @property
+  def num_of_inputs(self):
+    return self._num_of_inputs
 
 def broadcast_grad(dx, x):
   # Since some operators in numpy have broadcast property,
@@ -225,36 +228,47 @@ def func(output, feed_dict=None, get_gradient=False):
   if output in feed_dict:
     return feed_dict[output]
   # store all vars with their values in reversed topology order
-  var_dict = OrderedDict([(output, None)])
-  var_queue = Queue()
-  var_queue.put(output)
-  while not var_queue.empty():
-    var = var_queue.get()
+  reversed_topo_order = []
+  value = {output: None}
+  degree = {output: 0}
+  queue = Queue()
+  queue.put(output)
+  while not queue.empty():
+    var = queue.get()
     for child in var.variables:
-      if child not in var_dict:
+      degree[child] = degree.get(child, 0) + 1
+      if child not in value:
         if child in feed_dict:
-          var_dict[child] = feed_dict[child]
+          value[child] = feed_dict[child]
         else:
-          var_dict[child] = None
-          var_queue.put(child)
-  for var in reversed(var_dict):
-    if var_dict[var] is None:
-      child_values = [var_dict[child] for child in var.variables]
+          value[child] = None
+          queue.put(child)
+  queue.put(output)
+  while not queue.empty():
+    var = queue.get()
+    reversed_topo_order.append(var)
+    for child in var.variables:
+      degree[child] -= 1
+      if degree[child] == 0 and child not in feed_dict:
+        queue.put(child)
+  for var in reversed(reversed_topo_order):
+    if value[var] is None:
+      child_values = [value[child] for child in var.variables]
       for child_value in child_values:
         if child_value is None:
           raise ValueError("Loops in computational graph "
                            "or uninitialized inputs")
-      var_dict[var] = var.operator.forward(child_values)
+      value[var] = var.operator.forward(child_values)
   if not get_gradient:
-    return var_dict[output]
-  grad_dict = {output: np.ones_like(var_dict[output])}
-  for var in var_dict:
+    return value[output]
+  grad_dict = {output: np.ones_like(value[output])}
+  for var in reversed_topo_order:
     if var not in feed_dict and var.operator is not None:
-      child_values = [var_dict[child] for child in var.variables]
-      dx = var.operator.backward(child_values, var_dict[var], grad_dict[var])
+      child_values = [value[child] for child in var.variables]
+      dx = var.operator.backward(child_values, value[var], grad_dict[var])
       for i, child in enumerate(var.variables):
         if child in grad_dict:
           grad_dict[child] += dx[i]
         else:
           grad_dict[child] = dx[i]
-  return var_dict[output], grad_dict
+  return value[output], grad_dict

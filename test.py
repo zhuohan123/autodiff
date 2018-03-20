@@ -33,7 +33,7 @@ def run_problem3():
          + np.sum(grad[w2] * w2_v))
   print("(V(w + tv)-V(w)) / t       =", lhs)
   print("<dV(w), v>                 =", rhs)
-  print("|lfs - rhs| / lhs          =", np.abs(lhs - rhs) / lhs)
+  print("|lfs - rhs| / |lhs|        =", np.abs(lhs - rhs) / np.abs(lhs))
 
 def run_problem4():
   print("-" * 18 + " Problem 4 " + "-" * 18)
@@ -63,6 +63,9 @@ def run_problem4():
          + np.sum(grad[x3] * x3_v))
   print("(V(w + tv)-V(w)) / t       =", lhs)
   print("<dV(w), v>                 =", rhs)
-  print("|lfs - rhs| / lhs          =", np.abs(lhs - rhs) / lhs)
-run_problem3()
-run_problem4()
+  print("|lfs - rhs| / |lhs|        =", np.abs(lhs - rhs) / np.abs(lhs))
+
+if __name__ == '__main__':
+  run_problem3()
+  run_problem4()
+
